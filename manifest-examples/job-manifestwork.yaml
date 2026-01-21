@@ -1,0 +1,85 @@
+apiVersion: work.open-cluster-management.io/v1
+kind: ManifestWork
+metadata:
+  name: hyperfleet-cluster-west-1-job
+spec:
+  workload:
+    manifests:
+      - apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: maestro-cli-test
+          labels:
+            hyperfleet.io/managed: "true"
+            hyperfleet.io/cluster: cluster-west-1
+            test-job: "true"
+            test-job-id: "12345"
+            test-job-name: "test-job-1"
+          annotations:
+            hyperfleet.io/created-by: landing-zone-adapter
+            hyperfleet.io/cluster-id: cluster-west-1
+      - apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: test-job-1
+          namespace: maestro-cli-test
+          labels:
+            hyperfleet.io/component: test-job
+            hyperfleet.io/event-id: "12345"
+            hyperfleet.io/cluster: cluster-west-1
+
+        spec:
+          template:
+            spec:
+              containers:
+                - name: test-container
+                  image: busybox:1.36
+                  command: ["sh", "-c"]
+                  args:
+                    - "echo 'Starting test job...'; echo 'Event ID: $EVENT_ID'; echo 'Namespace: maestro-cli-test'; sleep 10; echo 'Job completed successfully!'; exit 1"
+                  env:
+                    - name: EVENT_ID
+                      value: "12345"
+                  resources:
+                    requests:
+                      cpu: 10m
+                      memory: 16Mi
+                    limits:
+                      cpu: 50m
+                      memory: 32Mi
+              restartPolicy: Never
+          backoffLimit: 1
+  deleteOption:
+    propagationPolicy: Foreground
+  manifestConfigs:
+    - resourceIdentifier:
+        group: ""
+        resource: namespaces
+        name: maestro-cli-test
+      feedbackRules:
+        - type: JSONPaths
+          jsonPaths:
+            - name: status
+              path: .status
+      updateStrategy:
+        type: ServerSideApply
+    - resourceIdentifier:
+        group: batch
+        resource: jobs
+        namespace: maestro-cli-test
+        name: test-job-1
+      feedbackRules:
+        - type: JSONPaths
+          jsonPaths:
+            - name: status
+              path: .status
+            - name: conditions
+              path: .status.conditions
+            - name: succeeded
+              path: .status.succeeded
+            - name: failed
+              path: .status.failed
+            - name: active
+              path: .status.active
+      updateStrategy:
+        type: ServerSideApply

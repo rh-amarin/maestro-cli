@@ -1,0 +1,88 @@
+{
+  "apiVersion": "work.open-cluster-management.io/v1",
+  "kind": "ManifestWork",
+  "metadata": {
+    "name": "hyperfleet-cluster-west-1-configmap"
+  },
+  "spec": {
+    "workload": {
+      "manifests": [
+        {
+          "apiVersion": "v1",
+          "kind": "Namespace",
+          "metadata": {
+            "name": "maestro-cli-test",
+            "labels": {
+              "hyperfleet.io/managed": "true",
+              "hyperfleet.io/cluster": "cluster-west-1",
+              "hyperfleet.io/component": "landing-zone"
+            },
+            "annotations": {
+              "hyperfleet.io/created-by": "landing-zone-adapter",
+              "hyperfleet.io/cluster-id": "cluster-west-1"
+            }
+          }
+        },
+        {
+          "apiVersion": "v1",
+          "kind": "ConfigMap",
+          "metadata": {
+            "name": "placeholder-config",
+            "namespace": "maestro-cli-test"
+          },
+          "data": {
+            "status": "job-removed"
+          }
+        }
+      ]
+    },
+    "deleteOption": {
+      "propagationPolicy": "Foreground"
+    },
+    "manifestConfigs": [
+      {
+        "resourceIdentifier": {
+          "group": "",
+          "resource": "namespaces",
+          "name": "maestro-cli-test"
+        },
+        "feedbackRules": [
+          {
+            "type": "JSONPaths",
+            "jsonPaths": [
+              {
+                "name": "status",
+                "path": ".status"
+              }
+            ]
+          }
+        ],
+        "updateStrategy": {
+          "type": "ServerSideApply"
+        }
+      },
+      {
+        "resourceIdentifier": {
+          "group": "",
+          "resource": "configmaps",
+          "namespace": "maestro-cli-test",
+          "name": "placeholder-config"
+        },
+        "feedbackRules": [
+          {
+            "type": "JSONPaths",
+            "jsonPaths": [
+              {
+                "name": "status",
+                "path": ".metadata"
+              }
+            ]
+          }
+        ],
+        "updateStrategy": {
+          "type": "ServerSideApply"
+        }
+      }
+    ]
+  }
+}
