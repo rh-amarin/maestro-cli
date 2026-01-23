@@ -7,8 +7,8 @@ IMAGE_REGISTRY ?= ghcr.io/hyperfleet
 IMAGE_TAG ?= latest
 
 # Build metadata
-GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-GIT_TAG := $(shell git describe --tags --exact-match 2>/dev/null || echo "")
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+GIT_TAG ?= $(shell git describe --tags --exact-match 2>/dev/null || echo "")
 BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 
 # Dev image configuration - set QUAY_USER to push to personal registry
@@ -17,14 +17,12 @@ QUAY_USER ?=
 DEV_TAG ?= dev-$(GIT_COMMIT)
 
 # LDFLAGS for build
-# Note: Variables are in package main, so use main.varName (not full import path)
+# Note: Variables are in package cmd, so use cmd.varName
 LDFLAGS := -w -s
-LDFLAGS += -X main.version=$(VERSION)
-LDFLAGS += -X main.commit=$(GIT_COMMIT)
-LDFLAGS += -X main.buildDate=$(BUILD_DATE)
-ifneq ($(GIT_TAG),)
-LDFLAGS += -X main.tag=$(GIT_TAG)
-endif
+LDFLAGS += -X github.com/openshift-hyperfleet/maestro-cli/cmd.Version=$(VERSION)
+LDFLAGS += -X github.com/openshift-hyperfleet/maestro-cli/cmd.Commit=$(GIT_COMMIT)
+LDFLAGS += -X github.com/openshift-hyperfleet/maestro-cli/cmd.Date=$(BUILD_DATE)
+LDFLAGS += -X github.com/openshift-hyperfleet/maestro-cli/cmd.Tag=$(GIT_TAG)
 
 # Go parameters
 GOCMD := go
