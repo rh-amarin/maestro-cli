@@ -112,14 +112,7 @@ func runDeleteCommand(ctx context.Context, flags *DeleteFlags) error {
 	}
 
 	// Initialize logger
-	logLevel := "info"
-	if flags.Verbose {
-		logLevel = "debug"
-	}
-	log := logger.New(logger.Config{
-		Level:  logLevel,
-		Format: "text",
-	})
+	log := logger.New(logger.Config{Level: getLogLevel(flags.Verbose), Format: "text"})
 
 	// Create HTTP-only client (no gRPC needed for delete)
 	client, err := maestro.NewHTTPClient(maestro.ClientConfig{

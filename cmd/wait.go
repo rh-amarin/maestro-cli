@@ -86,7 +86,11 @@ Examples:
 	// Command-specific flags
 	cmd.Flags().String("name", "", "ManifestWork name (required)")
 	cmd.Flags().String("consumer", "", "Target cluster name (required)")
-	cmd.Flags().String("for", "Available", "Condition to wait for (e.g., 'Available', 'Job:Complete', 'Job:Complete OR Job:Failed')")
+	cmd.Flags().String(
+		"for",
+		"Available",
+		"Condition to wait for (e.g., 'Available', 'Job:Complete', 'Job:Complete OR Job:Failed')",
+	)
 
 	// Mark required flags
 	if err := cmd.MarkFlagRequired("name"); err != nil {
@@ -102,13 +106,11 @@ Examples:
 // runWaitCommand executes the wait command
 func runWaitCommand(ctx context.Context, flags *WaitFlags) error {
 	// Initialize logger
-	logLevel := "info"
-	if flags.Verbose {
-		logLevel = "debug"
-	}
 	log := logger.New(logger.Config{
-		Level:  logLevel,
-		Format: "text",
+		Level:     getLogLevel(flags.Verbose),
+		Format:    "text",
+		Component: "maestro-cli",
+		Version:   "dev",
 	})
 
 	// Create HTTP-only client (no gRPC needed for wait)
@@ -169,7 +171,15 @@ func runWaitCommand(ctx context.Context, flags *WaitFlags) error {
 	}
 
 	// Wait for condition (poll every 2 seconds)
-	if err := client.WaitForCondition(waitCtx, flags.Consumer, flags.Name, flags.For, maestro.DefaultPollInterval, log, callback); err != nil {
+	if err := client.WaitForCondition(
+		waitCtx,
+		flags.Consumer,
+		flags.Name,
+		flags.For,
+		maestro.DefaultPollInterval,
+		log,
+		callback,
+	); err != nil {
 		return fmt.Errorf("error waiting for condition '%s': %w", flags.For, err)
 	}
 

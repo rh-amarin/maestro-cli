@@ -17,10 +17,6 @@ import (
 	"github.com/openshift-hyperfleet/maestro-cli/pkg/logger"
 )
 
-const (
-	defaultOutputFormat = "json"
-)
-
 // BuildFlags contains flags for the build command
 type BuildFlags struct {
 	Name       string
@@ -133,7 +129,9 @@ Examples:
 	cmd.Flags().String("output-file", "", "Output file path (default: stdout)")
 	cmd.Flags().String("strategy", "merge", "Merge strategy: merge or replace")
 	cmd.Flags().Bool("apply", false, "Apply the built ManifestWork after building")
-	cmd.Flags().String("wait", "", "Wait for condition after applying (e.g., 'Available', 'Job:Complete') - requires --apply")
+	cmd.Flags().String(
+		"wait", "", "Wait for condition after applying (e.g., 'Available', 'Job:Complete') - requires --apply",
+	)
 	cmd.Flags().Lookup("wait").NoOptDefVal = "Available" // Default when --wait is used without value
 	cmd.Flags().Bool("dry-run", false, "Show what would be built without making changes")
 	cmd.Flags().Bool("force", false, "Create new ManifestWork if it doesn't exist")
@@ -231,7 +229,9 @@ func runBuildCommand(ctx context.Context, flags *BuildFlags) error {
 					"name":     flags.Name,
 					"consumer": flags.Consumer,
 				})
-				return fmt.Errorf("ManifestWork %s not found in consumer %s (use --force to create new)", flags.Name, flags.Consumer)
+				return fmt.Errorf("ManifestWork %s not found in consumer %s (use --force to create new)",
+					flags.Name, flags.Consumer,
+				)
 			}
 
 			// Create new ManifestWork from source
@@ -370,7 +370,9 @@ func runBuildCommand(ctx context.Context, flags *BuildFlags) error {
 			}
 		}
 
-		if err := client.WaitForCondition(waitCtx, flags.Consumer, existing.Name, flags.Wait, maestro.DefaultPollInterval, log, callback); err != nil {
+		if err := client.WaitForCondition(
+			waitCtx, flags.Consumer, existing.Name, flags.Wait, maestro.DefaultPollInterval, log, callback,
+		); err != nil {
 			return err
 		}
 	}
@@ -387,11 +389,11 @@ func outputManifestWork(mw *workv1.ManifestWork, outputFile, format string) erro
 	if outputFile != "" {
 		ext := strings.ToLower(filepath.Ext(outputFile))
 		if ext == ".json" {
-			format = defaultOutputFormat
+			format = defaultOutputFormatJSON
 		}
 	}
 
-	if format == "json" {
+	if format == defaultOutputFormatJSON {
 		data, err = manifestwork.ToJSON(mw)
 	} else {
 		data, err = manifestwork.ToYAML(mw)

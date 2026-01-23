@@ -10,12 +10,6 @@ import (
 	workv1 "open-cluster-management.io/api/work/v1"
 )
 
-const (
-	apiVersionManifestWork = "work.open-cluster-management.io/v1"
-	kindManifestWork       = "ManifestWork"
-	statusApplied          = "Applied"
-)
-
 func TestLoadSourceFile(t *testing.T) {
 	tests := []struct {
 		name        string

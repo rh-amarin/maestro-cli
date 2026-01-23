@@ -88,7 +88,9 @@ Examples:
 	// Command-specific flags
 	cmd.Flags().String("manifest-file", "", "Path to ManifestWork YAML/JSON file (required)")
 	cmd.Flags().String("consumer", "", "Target cluster name (required)")
-	cmd.Flags().String("wait", "", "Wait for condition before exit (e.g., 'Available', 'Job:Complete', 'Job:Complete OR Job:Failed')")
+	cmd.Flags().String(
+		"wait", "", "Wait for condition before exit (e.g., 'Available', 'Job:Complete', 'Job:Complete OR Job:Failed')",
+	)
 	cmd.Flags().Lookup("wait").NoOptDefVal = "Available" // Default when --wait is used without value
 
 	// Mark required flags
@@ -209,10 +211,10 @@ func runApplyCommand(ctx context.Context, flags *ApplyFlags) error {
 		Message:   "ManifestWork applied successfully",
 		Timestamp: time.Now(),
 	}); writeErr != nil {
-		log.Warn(ctx, "Failed to write results file", logger.Fields{
+		log.Error(ctx, writeErr, "Failed to write results file", logger.Fields{
 			"results_path": flags.ResultsPath,
-			"error":        writeErr.Error(),
 		})
+		return fmt.Errorf("failed to write results file: %w", writeErr)
 	}
 
 	// Wait for condition if requested (using HTTP polling, like kubectl wait)
@@ -248,7 +250,9 @@ func runApplyCommand(ctx context.Context, flags *ApplyFlags) error {
 		}
 
 		// Poll every 2 seconds by default
-		if err := client.WaitForCondition(waitCtx, flags.Consumer, mw.Name, flags.Wait, maestro.DefaultPollInterval, log, callback); err != nil {
+		if err := client.WaitForCondition(
+			waitCtx, flags.Consumer, mw.Name, flags.Wait, maestro.DefaultPollInterval, log, callback,
+		); err != nil {
 			return err
 		}
 	}
@@ -259,7 +263,7 @@ func runApplyCommand(ctx context.Context, flags *ApplyFlags) error {
 // getLogLevel determines the log level based on verbose flag
 func getLogLevel(verbose bool) string {
 	if verbose {
-		return "debug"
+		return logLevelDebug
 	}
-	return "info"
+	return logLevelInfo
 }

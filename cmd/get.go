@@ -96,12 +96,8 @@ func runGetCommand(ctx context.Context, flags *GetFlags) error {
 	}
 
 	// Initialize logger
-	logLevel := "info"
-	if flags.Verbose {
-		logLevel = "debug"
-	}
 	log := logger.New(logger.Config{
-		Level:  logLevel,
+		Level:  getLogLevel(flags.Verbose),
 		Format: "text",
 	})
 

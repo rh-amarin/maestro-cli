@@ -96,12 +96,8 @@ func runDescribeCommand(ctx context.Context, flags *DescribeFlags) error {
 	}
 
 	// Initialize logger
-	logLevel := "info"
-	if flags.Verbose {
-		logLevel = "debug"
-	}
 	log := logger.New(logger.Config{
-		Level:  logLevel,
+		Level:  getLogLevel(flags.Verbose),
 		Format: "text",
 	})
 
@@ -137,9 +133,9 @@ func runDescribeCommand(ctx context.Context, flags *DescribeFlags) error {
 
 	// Output based on format
 	switch strings.ToLower(flags.Output) {
-	case "json":
+	case defaultOutputFormatJSON:
 		return outputDescribeJSON(details)
-	case "yaml":
+	case defaultOutputFormatYAML:
 		return outputDescribeYAML(details)
 	default:
 		outputDescribeHuman(details)

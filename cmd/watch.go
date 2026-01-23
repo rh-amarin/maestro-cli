@@ -92,14 +92,7 @@ Examples:
 // runWatchCommand executes the watch command
 func runWatchCommand(ctx context.Context, flags *WatchFlags) error {
 	// Initialize logger
-	logLevel := "info"
-	if flags.Verbose {
-		logLevel = "debug"
-	}
-	log := logger.New(logger.Config{
-		Level:  logLevel,
-		Format: "text",
-	})
+	log := logger.New(logger.Config{Level: getLogLevel(flags.Verbose), Format: "text"})
 
 	// Create HTTP-only client
 	client, err := maestro.NewHTTPClient(maestro.ClientConfig{
@@ -163,16 +156,14 @@ func runWatchCommand(ctx context.Context, flags *WatchFlags) error {
 				log.Warn(ctx, "Status check failed", logger.Fields{"error": err.Error()})
 				consecutiveFailures++
 				updateBackoffInterval(&currentInterval, &consecutiveFailures, baseInterval, ticker)
-			} else {
+			} else if consecutiveFailures > 0 {
 				// Success - reset backoff
-				if consecutiveFailures > 0 {
-					consecutiveFailures = 0
-					currentInterval = baseInterval
-					ticker.Reset(currentInterval)
-					log.Debug(ctx, "Status check succeeded, reset backoff", logger.Fields{
-						"interval": currentInterval.String(),
-					})
-				}
+				consecutiveFailures = 0
+				currentInterval = baseInterval
+				ticker.Reset(currentInterval)
+				log.Debug(ctx, "Status check succeeded, reset backoff", logger.Fields{
+					"interval": currentInterval.String(),
+				})
 			}
 		}
 	}
@@ -180,7 +171,12 @@ func runWatchCommand(ctx context.Context, flags *WatchFlags) error {
 
 // updateBackoffInterval implements exponential backoff for API failures
 // Caps at 5 minutes maximum to avoid extremely long delays
-func updateBackoffInterval(currentInterval *time.Duration, consecutiveFailures *int, baseInterval time.Duration, ticker *time.Ticker) {
+func updateBackoffInterval(
+	currentInterval *time.Duration,
+	consecutiveFailures *int,
+	baseInterval time.Duration,
+	ticker *time.Ticker,
+) {
 	if *consecutiveFailures <= 0 {
 		return
 	}
@@ -211,7 +207,13 @@ func updateBackoffInterval(currentInterval *time.Duration, consecutiveFailures *
 }
 
 // printWatchStatus prints the current ManifestWork status if changed
-func printWatchStatus(ctx context.Context, client *maestro.Client, flags *WatchFlags, lastVersion *int32, lastConditions *string) error {
+func printWatchStatus(
+	ctx context.Context,
+	client *maestro.Client,
+	flags *WatchFlags,
+	lastVersion *int32,
+	lastConditions *string,
+) error {
 	details, err := client.GetManifestWorkDetailsHTTP(ctx, flags.Consumer, flags.Name)
 	if err != nil {
 		return err

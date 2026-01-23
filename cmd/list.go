@@ -86,7 +86,9 @@ Examples:
 
 	// Command-specific flags
 	cmd.Flags().String("consumer", "", "Target cluster name (required)")
-	cmd.Flags().String("filter", "", "Filter by manifest content (e.g., 'nginx', 'Namespace/hyperfleet', 'Deployment/default/nginx')")
+	cmd.Flags().String(
+		"filter", "", "Filter by manifest content (e.g., 'nginx', 'Namespace/hyperfleet', 'Deployment/default/nginx')",
+	)
 
 	// Mark required flags
 	if err := cmd.MarkFlagRequired("consumer"); err != nil {
@@ -106,12 +108,8 @@ func runListCommand(ctx context.Context, flags *ListFlags) error {
 	}
 
 	// Initialize logger
-	logLevel := "info"
-	if flags.Verbose {
-		logLevel = "debug"
-	}
 	log := logger.New(logger.Config{
-		Level:  logLevel,
+		Level:  getLogLevel(flags.Verbose),
 		Format: "text",
 	})
 
@@ -208,7 +206,12 @@ func filterResourceBundles(items []maestro.ResourceBundleSummary, filter string)
 }
 
 // matchesResourceBundleFilter checks if a ResourceBundleSummary matches the filter criteria
-func matchesResourceBundleFilter(rb maestro.ResourceBundleSummary, filterKind, filterNamespace, filterName string) bool {
+func matchesResourceBundleFilter(
+	rb maestro.ResourceBundleSummary,
+	filterKind,
+	filterNamespace,
+	filterName string,
+) bool {
 	// Check if filter matches the work name itself
 	if filterName != "" && strings.Contains(strings.ToLower(rb.Name), filterName) {
 		return true

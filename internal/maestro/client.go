@@ -32,7 +32,8 @@ const (
 	DefaultPollInterval = 1 * time.Second
 
 	// Status constants
-	statusTrue = "True"
+	statusTrue    = "True"
+	statusApplied = "Applied"
 )
 
 // Client represents a Maestro client
@@ -116,6 +117,7 @@ func NewClient(ctx context.Context, config ClientConfig) (*Client, error) {
 		var err error
 		tlsConfig, err = createTLSConfig(config)
 		if err != nil {
+			cancel() // Clean up cancel function on error
 			return nil, fmt.Errorf("failed to create TLS config: %w", err)
 		}
 	}
@@ -144,6 +146,7 @@ func NewClient(ctx context.Context, config ClientConfig) (*Client, error) {
 		Debug(false).
 		Build()
 	if err != nil {
+		cancel() // Clean up cancel function on error
 		return nil, fmt.Errorf("failed to create logger: %w", err)
 	}
 
@@ -726,7 +729,11 @@ func (c *Client) GetResourceBundleHTTP(ctx context.Context, id string) (*openapi
 }
 
 // GetResourceBundleByNameHTTP gets a resource bundle by name and consumer using the HTTP API
-func (c *Client) GetResourceBundleByNameHTTP(ctx context.Context, consumer, name string) (*openapi.ResourceBundle, error) {
+func (c *Client) GetResourceBundleByNameHTTP(
+	ctx context.Context,
+	consumer,
+	name string,
+) (*openapi.ResourceBundle, error) {
 	if err := validateSearchQuery(consumer); err != nil {
 		return nil, fmt.Errorf("invalid consumer name: %w", err)
 	}
@@ -832,7 +839,11 @@ func (c *Client) DeleteManifestWork(ctx context.Context, consumer, name string) 
 }
 
 // UpdateManifestWork updates an existing ManifestWork
-func (c *Client) UpdateManifestWork(ctx context.Context, consumer string, manifestWork *workv1.ManifestWork) (*workv1.ManifestWork, error) {
+func (c *Client) UpdateManifestWork(
+	ctx context.Context,
+	consumer string,
+	manifestWork *workv1.ManifestWork,
+) (*workv1.ManifestWork, error) {
 	if c.workClient == nil {
 		return nil, fmt.Errorf("gRPC client not available: UpdateManifestWork requires gRPC connection")
 	}
@@ -841,7 +852,13 @@ func (c *Client) UpdateManifestWork(ctx context.Context, consumer string, manife
 }
 
 // PatchManifestWork updates an existing ManifestWork using patch (supports gRPC)
-func (c *Client) PatchManifestWork(ctx context.Context, consumer string, existingWork, updatedWork *workv1.ManifestWork, log *logger.Logger) (*workv1.ManifestWork, error) {
+func (c *Client) PatchManifestWork(
+	ctx context.Context,
+	consumer string,
+	existingWork,
+	updatedWork *workv1.ManifestWork,
+	log *logger.Logger,
+) (*workv1.ManifestWork, error) {
 	if c.workClient == nil {
 		return nil, fmt.Errorf("gRPC client not available: PatchManifestWork requires gRPC connection")
 	}
@@ -858,7 +875,8 @@ func (c *Client) PatchManifestWork(ctx context.Context, consumer string, existin
 		"resource_version": existingWork.ResourceVersion,
 	})
 
-	return c.workClient.ManifestWorks(consumer).Patch(ctx, updatedWork.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+	return c.workClient.ManifestWorks(consumer).
+		Patch(ctx, updatedWork.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
 }
 
 // ManifestWorkExists checks if a ManifestWork exists
@@ -877,7 +895,12 @@ func (c *Client) ManifestWorkExists(ctx context.Context, consumer, name string) 
 }
 
 // ApplyManifestWork applies a ManifestWork to the target consumer
-func (c *Client) ApplyManifestWork(ctx context.Context, consumer string, manifestWork *workv1.ManifestWork, log *logger.Logger) (*workv1.ManifestWork, error) {
+func (c *Client) ApplyManifestWork(
+	ctx context.Context,
+	consumer string,
+	manifestWork *workv1.ManifestWork,
+	log *logger.Logger,
+) (*workv1.ManifestWork, error) {
 	// Set the namespace to the consumer name (this is how Maestro routing works)
 	manifestWork.Namespace = consumer
 
@@ -921,7 +944,8 @@ func (c *Client) ApplyManifestWork(ctx context.Context, consumer string, manifes
 		return nil, fmt.Errorf("failed to create patch: %w", err)
 	}
 
-	return c.workClient.ManifestWorks(consumer).Patch(ctx, manifestWork.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+	return c.workClient.ManifestWorks(consumer).
+		Patch(ctx, manifestWork.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
 }
 
 // WaitCallback is called on each poll with current ManifestWork details
@@ -931,7 +955,13 @@ type WaitCallback func(details *ManifestWorkDetails, conditionMet bool) error
 // WaitForCondition polls for a ManifestWork condition expression using HTTP API
 // Supports logical expressions like "Available AND Job:Complete" or "Job:succeeded>=1 OR Job:Failed"
 // The optional callback is invoked on each poll to report progress
-func (c *Client) WaitForCondition(ctx context.Context, consumer, workName, conditionExpr string, pollInterval time.Duration, log *logger.Logger, callback WaitCallback) error {
+func (c *Client) WaitForCondition(
+	ctx context.Context,
+	consumer, workName, conditionExpr string,
+	pollInterval time.Duration,
+	log *logger.Logger,
+	callback WaitCallback,
+) error {
 	if pollInterval == 0 {
 		pollInterval = DefaultPollInterval
 	}
@@ -1011,7 +1041,12 @@ func (c *Client) WaitForCondition(ctx context.Context, consumer, workName, condi
 }
 
 // WaitForDeletion polls for ManifestWork deletion using HTTP API
-func (c *Client) WaitForDeletion(ctx context.Context, consumer, workName string, pollInterval time.Duration, log *logger.Logger) error {
+func (c *Client) WaitForDeletion(
+	ctx context.Context,
+	consumer, workName string,
+	pollInterval time.Duration,
+	log *logger.Logger,
+) error {
 	if pollInterval == 0 {
 		pollInterval = DefaultPollInterval
 	}
@@ -1055,7 +1090,12 @@ func (c *Client) WaitForDeletion(ctx context.Context, consumer, workName string,
 //   - StatusFeedback conditions: "Job:Complete", "Job:succeeded>=1"
 //   - Logical operators: "AND", "OR", "&&", "||"
 //   - Parentheses for grouping: "(A AND B) OR C"
-func evaluateConditionExpression(ctx context.Context, details *ManifestWorkDetails, expr string, log *logger.Logger) bool {
+func evaluateConditionExpression(
+	ctx context.Context,
+	details *ManifestWorkDetails,
+	expr string,
+	log *logger.Logger,
+) bool {
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
 		return false
@@ -1186,7 +1226,12 @@ func splitByOperator(expr, op1, op2 string) []string {
 }
 
 // evaluateSingleCondition evaluates a single condition (no logical operators)
-func evaluateSingleCondition(ctx context.Context, details *ManifestWorkDetails, condition string, log *logger.Logger) bool {
+func evaluateSingleCondition(
+	ctx context.Context,
+	details *ManifestWorkDetails,
+	condition string,
+	log *logger.Logger,
+) bool {
 	condition = strings.TrimSpace(condition)
 
 	log.Debug(ctx, "Evaluating single condition", logger.Fields{
@@ -1213,7 +1258,12 @@ func evaluateSingleCondition(ctx context.Context, details *ManifestWorkDetails, 
 // For conditions other than "Applied", it also verifies that the condition's
 // lastTransitionTime is >= the "Applied" condition's lastTransitionTime to ensure
 // we're seeing fresh status and not stale data from a previous apply
-func checkDetailsCondition(ctx context.Context, details *ManifestWorkDetails, condType string, log *logger.Logger) bool {
+func checkDetailsCondition(
+	ctx context.Context,
+	details *ManifestWorkDetails,
+	condType string,
+	log *logger.Logger,
+) bool {
 	// Find the target condition and Applied condition
 	var targetCond, appliedCond *ConditionSummary
 	for i := range details.Conditions {
@@ -1221,7 +1271,7 @@ func checkDetailsCondition(ctx context.Context, details *ManifestWorkDetails, co
 		if strings.EqualFold(cond.Type, condType) && cond.Status == statusTrue {
 			targetCond = cond
 		}
-		if strings.EqualFold(cond.Type, "Applied") && cond.Status == "True" {
+		if strings.EqualFold(cond.Type, "Applied") && cond.Status == statusTrue {
 			appliedCond = cond
 		}
 	}
@@ -1274,7 +1324,12 @@ func checkDetailsCondition(ctx context.Context, details *ManifestWorkDetails, co
 // evaluateStatusFeedbackCondition evaluates a statusFeedback condition
 // Format: "Kind:condition" or "Kind/name:condition" or "Kind/namespace/name:condition"
 // Examples: "Job:Complete", "Job/test-job-1:Complete", "Job/default/test-job:succeeded>=1"
-func evaluateStatusFeedbackCondition(ctx context.Context, details *ManifestWorkDetails, condition string, log *logger.Logger) bool {
+func evaluateStatusFeedbackCondition(
+	ctx context.Context,
+	details *ManifestWorkDetails,
+	condition string,
+	log *logger.Logger,
+) bool {
 	parts := strings.SplitN(condition, ":", 2)
 	if len(parts) != 2 {
 		return false
@@ -1307,7 +1362,7 @@ func evaluateStatusFeedbackCondition(ctx context.Context, details *ManifestWorkD
 	var manifestAppliedTime time.Time
 	var manifestAppliedTimeStr string
 	for _, cond := range details.Conditions {
-		if strings.EqualFold(cond.Type, "Applied") && cond.Status == "True" && cond.LastTransitionTime != "" {
+		if strings.EqualFold(cond.Type, statusApplied) && cond.Status == statusTrue && cond.LastTransitionTime != "" {
 			manifestAppliedTimeStr = cond.LastTransitionTime
 			if t, err := time.Parse(time.RFC3339, cond.LastTransitionTime); err == nil {
 				manifestAppliedTime = t
@@ -1344,7 +1399,7 @@ func evaluateStatusFeedbackCondition(ctx context.Context, details *ManifestWorkD
 			var foundAppliedCondition bool
 
 			for _, cond := range rs.Conditions {
-				if strings.EqualFold(cond.Type, "Applied") && cond.Status == "True" {
+				if strings.EqualFold(cond.Type, "Applied") && cond.Status == statusTrue {
 					foundAppliedCondition = true
 					resourceAppliedTimeStr = cond.LastTransitionTime
 					if cond.LastTransitionTime != "" {
@@ -1395,7 +1450,7 @@ func evaluateStatusFeedbackCondition(ctx context.Context, details *ManifestWorkD
 		// Otherwise, check if it's a condition name in statusFeedback.conditions or resource conditions
 		// First check resource-level conditions (Applied, Available, StatusFeedbackSynced)
 		for _, cond := range rs.Conditions {
-			if strings.EqualFold(cond.Type, check) && cond.Status == "True" {
+			if strings.EqualFold(cond.Type, check) && cond.Status == statusTrue {
 				log.Debug(ctx, "Resource condition matched", logger.Fields{
 					"resource":  fmt.Sprintf("%s/%s", rs.Kind, rs.Name),
 					"condition": check,
@@ -1654,7 +1709,10 @@ func validateSearchQuery(value string) error {
 	for _, r := range value {
 		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') &&
 			(r < '0' || r > '9') && r != '-' && r != '_' && r != '.' {
-			return fmt.Errorf("invalid character '%c' in search query, only alphanumeric, hyphens, underscores, and dots allowed", r)
+			return fmt.Errorf("invalid character '%c' in search query,"+
+				" only alphanumeric, hyphens, underscores, and dots allowed",
+				r,
+			)
 		}
 	}
 

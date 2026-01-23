@@ -373,7 +373,9 @@ func TestSplitByOperator(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := splitByOperator(tt.expr, tt.op1, tt.op2)
 			if len(result) != len(tt.expected) {
-				t.Errorf("splitByOperator(%q, %q, %q) length = %d, expected %d", tt.expr, tt.op1, tt.op2, len(result), len(tt.expected))
+				t.Errorf("splitByOperator(%q, %q, %q) length = %d, expected %d",
+					tt.expr, tt.op1, tt.op2, len(result), len(tt.expected),
+				)
 				return
 			}
 			for i, expected := range tt.expected {

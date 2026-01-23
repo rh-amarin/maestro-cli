@@ -15,6 +15,12 @@ import (
 	"github.com/openshift-hyperfleet/maestro-cli/internal/maestro"
 )
 
+const (
+	apiVersionManifestWork = "work.open-cluster-management.io/v1"
+	kindManifestWork       = "ManifestWork"
+	statusApplied          = "Applied"
+)
+
 // StatusResult represents the result of a maestro-cli operation for status-reporter integration
 type StatusResult struct {
 	// Resource bundle identification
@@ -89,13 +95,13 @@ func LoadFromFile(filePath string) (*workv1.ManifestWork, error) {
 
 	// Validate that it's actually a ManifestWork
 	if manifestWork.APIVersion == "" {
-		manifestWork.APIVersion = "work.open-cluster-management.io/v1"
+		manifestWork.APIVersion = apiVersionManifestWork
 	}
 	if manifestWork.Kind == "" {
-		manifestWork.Kind = "ManifestWork"
+		manifestWork.Kind = kindManifestWork
 	}
 
-	if manifestWork.APIVersion != "work.open-cluster-management.io/v1" || manifestWork.Kind != "ManifestWork" {
+	if manifestWork.APIVersion != apiVersionManifestWork || manifestWork.Kind != kindManifestWork {
 		return nil, fmt.Errorf("file %s does not contain a valid ManifestWork resource", filePath)
 	}
 
@@ -198,17 +204,20 @@ func (s *SourceFile) IsFullManifestWork() bool {
 // MergeManifestWorks merges source manifests into an existing ManifestWork
 // Strategy "merge": adds new manifests and updates existing ones (by kind+name)
 // Strategy "replace": replaces the entire spec with source
-func MergeManifestWorks(existing *workv1.ManifestWork, source *SourceFile, strategy string) (*workv1.ManifestWork, error) {
+func MergeManifestWorks(existing *workv1.ManifestWork,
+	source *SourceFile,
+	strategy string) (*workv1.ManifestWork, error) {
 	result := existing.DeepCopy()
 
 	switch strategy {
 	case "replace":
 		// Replace entire spec with source
-		if source.Spec != nil {
+		switch {
+		case source.Spec != nil:
 			result.Spec = *source.Spec
-		} else if source.Workload != nil {
+		case source.Workload != nil:
 			result.Spec.Workload = *source.Workload
-		} else if len(source.Manifests) > 0 {
+		case len(source.Manifests) > 0:
 			result.Spec.Workload.Manifests = source.Manifests
 		}
 	case "merge":
@@ -334,27 +343,6 @@ func mergeManifestConfigs(existing, source []workv1.ManifestConfigOption) []work
 	}
 
 	return result
-}
-
-
-// getManifestShortKey extracts kind/name key (without namespace) from a manifest
-func getManifestShortKey(m workv1.Manifest) string {
-	var obj struct {
-		Kind     string `json:"kind"`
-		Metadata struct {
-			Name string `json:"name"`
-		} `json:"metadata"`
-	}
-
-	if err := json.Unmarshal(m.Raw, &obj); err != nil {
-		return ""
-	}
-
-	if obj.Kind == "" || obj.Metadata.Name == "" {
-		return ""
-	}
-
-	return fmt.Sprintf("%s/%s", obj.Kind, obj.Metadata.Name)
 }
 
 // ListManifestKeys returns all manifest keys (kind/namespace/name) in a ManifestWork

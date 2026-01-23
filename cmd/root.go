@@ -44,6 +44,10 @@ const (
 
 	// MaxBackoffInterval is the maximum interval for exponential backoff in watch operations
 	MaxBackoffInterval = 5 * time.Minute
+
+	// Output format constants
+	defaultOutputFormatJSON = "json"
+	defaultOutputFormatYAML = "yaml"
 )
 
 // Environment variable names
@@ -54,9 +58,12 @@ const (
 	EnvGRPCServerCAFile   = "MAESTRO_GRPC_SERVER_CA_FILE"
 	EnvGRPCClientCertFile = "MAESTRO_GRPC_CLIENT_CERT"
 	EnvGRPCClientKeyFile  = "MAESTRO_GRPC_CLIENT_KEY"
-	EnvGRPCToken          = "MAESTRO_GRPC_TOKEN"      //nolint:gosec // This is an environment variable name, not a credential
-	EnvGRPCTokenFile      = "MAESTRO_GRPC_TOKEN_FILE" //nolint:gosec // This is an environment variable name, not a credential
-	EnvSourceID           = "MAESTRO_SOURCE_ID"
+	// This is an environment variable name, not a credential
+	EnvGRPCToken = "MAESTRO_GRPC_TOKEN" //nolint:gosec
+
+	// This is an environment variable name, not a credential
+	EnvGRPCTokenFile = "MAESTRO_GRPC_TOKEN_FILE" //nolint:gosec
+	EnvSourceID      = "MAESTRO_SOURCE_ID"
 )
 
 // Default values

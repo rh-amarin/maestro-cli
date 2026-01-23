@@ -100,14 +100,7 @@ func runDiffCommand(ctx context.Context, flags *DiffFlags) error {
 	}
 
 	// Initialize logger
-	logLevel := "info"
-	if flags.Verbose {
-		logLevel = "debug"
-	}
-	log := logger.New(logger.Config{
-		Level:  logLevel,
-		Format: "text",
-	})
+	log := logger.New(logger.Config{Level: getLogLevel(flags.Verbose), Format: "text"})
 
 	// Load local ManifestWork
 	log.Debug(ctx, "Loading local ManifestWork", logger.Fields{
@@ -304,11 +297,12 @@ func findDiffs(path string, local, remote interface{}) []string {
 			localVal, localHas := localMap[k]
 			remoteVal, remoteHas := remoteMap[k]
 
-			if localHas && !remoteHas {
+			switch {
+			case localHas && !remoteHas:
 				diffs = append(diffs, fmt.Sprintf("+ %s: %s", newPath, formatValue(localVal)))
-			} else if !localHas && remoteHas {
+			case !localHas && remoteHas:
 				diffs = append(diffs, fmt.Sprintf("- %s: %s", newPath, formatValue(remoteVal)))
-			} else if !reflect.DeepEqual(localVal, remoteVal) {
+			case !reflect.DeepEqual(localVal, remoteVal):
 				// Recursively check nested maps
 				_, localIsNested := localVal.(map[string]interface{})
 				_, remoteIsNested := remoteVal.(map[string]interface{})
@@ -403,7 +397,8 @@ func copyMapWithoutMetadata(m map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	for k, v := range m {
-		if k == "metadata" {
+		switch k {
+		case "metadata":
 			if metadata, ok := v.(map[string]interface{}); ok {
 				newMetadata := make(map[string]interface{})
 				for mk, mv := range metadata {
@@ -416,10 +411,10 @@ func copyMapWithoutMetadata(m map[string]interface{}) map[string]interface{} {
 				}
 				result[k] = newMetadata
 			}
-		} else if k == "status" {
+		case "status":
 			// Skip status field entirely
 			continue
-		} else {
+		default:
 			result[k] = v
 		}
 	}

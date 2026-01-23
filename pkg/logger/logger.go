@@ -40,10 +40,16 @@ const (
 	// SpanIDKey is the context key for distributed tracing span ID
 	SpanIDKey ContextKey = "span_id"
 	// RequestIDKey is the context key for request ID
-	RequestIDKey  ContextKey = "request_id"
-	EventIDKey    ContextKey = "event_id"
-	ClusterIDKey  ContextKey = "cluster_id"
-	ResourceType  ContextKey = "resource_type"
+	RequestIDKey ContextKey = "request_id"
+
+	// EventIDKey is the context key for event ID
+	EventIDKey ContextKey = "event_id"
+	// ClusterIDKey is the context key for cluster ID to log
+	ClusterIDKey ContextKey = "cluster_id"
+
+	// ResourceType is the context key for resource type to log
+	ResourceType ContextKey = "resource_type"
+	// ResourceIDKey is the context key for resource ID to log
 	ResourceIDKey ContextKey = "resource_id"
 )
 
