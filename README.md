@@ -166,6 +166,78 @@ Compare local ManifestWork with remote state.
 maestro-cli diff --manifest-file=manifest.yaml --consumer=agent1
 ```
 
+### tui
+
+Launch an interactive terminal UI to browse consumers and ManifestWorks.
+
+```bash
+# Launch with default endpoint
+maestro-cli tui
+
+# Launch pointing at a specific Maestro instance
+maestro-cli tui --http-endpoint=http://maestro.example.com:8000
+
+# Launch with a bearer token
+maestro-cli tui --http-endpoint=http://maestro.example.com:8000 \
+  --grpc-client-token=<token>
+```
+
+#### Layout
+
+```
+┌─ Consumers ──────────────┐┌─ ManifestWork Detail ─────────────────────────┐
+│ > consumer-1             ││ Name:        my-work                           │
+│   consumer-2             ││ Consumer:    consumer-1   Version: 3           │
+└──────────────────────────┘│ Created:     2024-01-01T00:00:00Z              │
+┌─ ManifestWorks ──────────┐│                                                │
+│ [/] to filter            ││ Conditions:                                    │
+│ > work-1  ✓              ││   ✓ Applied   ✓ Available                      │
+│   work-2  ✗              ││                                                │
+│   work-3  ?              ││ Manifests (2):                                 │
+└──────────────────────────┘│   • Deployment/my-app (default)                │
+                            │   • Service/my-svc (default)                   │
+                            └────────────────────────────────────────────────┘
+[Tab] panel  [n] new  [d] del  [w] watch  [/] filter  [↑↓] nav  [Ctrl+C] quit
+```
+
+#### Key bindings
+
+| Context | Key | Action |
+|---------|-----|--------|
+| Global | `Tab` / `Shift+Tab` | Cycle focus between panels |
+| Global | `Ctrl+C` | Quit |
+| Consumers | `↑` / `↓` or `k` / `j` | Navigate list |
+| Consumers | `Enter` | Load ManifestWorks for selected consumer |
+| Consumers | `n` | Create new consumer |
+| Consumers | `d` | Delete selected consumer (confirm prompt) |
+| Consumers | `r` | Refresh consumer list |
+| ManifestWorks | `↑` / `↓` or `k` / `j` | Navigate list |
+| ManifestWorks | `/` | Filter by name |
+| ManifestWorks | `Esc` | Clear filter |
+| ManifestWorks | `w` | Toggle watch mode (auto-refresh every 5 s) |
+| ManifestWorks | `v` | Cycle detail view: Formatted → JSON → YAML |
+| ManifestWorks | `d` | Delete selected ManifestWork (confirm prompt) |
+| ManifestWorks | `r` | Refresh list |
+| ManifestWorks | `y` | Copy detail to clipboard |
+| Detail | `↑` / `↓` / `PgUp` / `PgDn` | Scroll |
+| Detail | `/` | Open inline search |
+| Detail | `Enter` / `n` | Next search match |
+| Detail | `N` | Previous search match |
+| Detail | `Esc` | Close search |
+| Detail | `w` | Toggle watch mode |
+| Detail | `v` | Cycle view mode |
+| Detail | `y` | Copy to clipboard |
+| Detail | `r` | Refresh |
+
+#### Features
+
+- **Three view modes** — Formatted (human-readable), JSON, and YAML with syntax highlighting.
+- **Inline search** — Press `/` in the detail panel to search; matches are highlighted in amber, the current match in green. `n`/`N` cycle through occurrences.
+- **Watch mode** — Press `w` to auto-refresh the selected ManifestWork every 5 seconds. An amber `[WATCH]` badge appears in the panel title.
+- **Filter** — Press `/` in the ManifestWorks panel to filter by name in real time.
+- **Clipboard** — Press `y` to copy the current detail view to the system clipboard (plain text, no ANSI codes).
+- **Mouse support** — Click to focus a panel or select an item; scroll wheel navigates lists and scrolls the detail viewport.
+
 ## Condition Expressions
 
 The `--wait` and `--for` flags support condition expressions:

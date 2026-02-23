@@ -105,6 +105,7 @@ func NewRootCommand() *cobra.Command {
 		NewDiffCommand(),
 		NewBuildCommand(),
 		NewVersionCommand(),
+		NewTUICommand(),
 	)
 
 	return cmd

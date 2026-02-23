@@ -224,6 +224,12 @@ func createHTTPClient(insecure bool, log *logger.Logger) *http.Client {
 	}
 }
 
+// ConsumerInfo holds basic info about a Maestro consumer
+type ConsumerInfo struct {
+	ID   string
+	Name string
+}
+
 // ListConsumers lists all consumers from Maestro HTTP API
 func (c *Client) ListConsumers(ctx context.Context) ([]string, error) {
 	consumerList, _, err := c.httpClient.DefaultAPI.ApiMaestroV1ConsumersGet(ctx).Execute()
@@ -238,6 +244,222 @@ func (c *Client) ListConsumers(ctx context.Context) ([]string, error) {
 		}
 	}
 	return names, nil
+}
+
+// ListConsumersWithDetails lists all consumers and returns ConsumerInfo structs
+func (c *Client) ListConsumersWithDetails(ctx context.Context) ([]ConsumerInfo, error) {
+	consumerList, _, err := c.httpClient.DefaultAPI.ApiMaestroV1ConsumersGet(ctx).Execute()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list consumers: %w", err)
+	}
+
+	result := make([]ConsumerInfo, 0, len(consumerList.Items))
+	for _, consumer := range consumerList.Items {
+		info := ConsumerInfo{}
+		if consumer.Id != nil {
+			info.ID = *consumer.Id
+		}
+		if consumer.Name != nil {
+			info.Name = *consumer.Name
+		}
+		result = append(result, info)
+	}
+	return result, nil
+}
+
+// CreateConsumer creates a new consumer with the given name
+func (c *Client) CreateConsumer(ctx context.Context, name string) (*ConsumerInfo, error) {
+	consumer := openapi.Consumer{
+		Name: &name,
+	}
+	created, _, err := c.httpClient.DefaultAPI.ApiMaestroV1ConsumersPost(ctx).Consumer(consumer).Execute()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create consumer: %w", err)
+	}
+	info := &ConsumerInfo{}
+	if created.Id != nil {
+		info.ID = *created.Id
+	}
+	if created.Name != nil {
+		info.Name = *created.Name
+	}
+	return info, nil
+}
+
+// DeleteConsumer deletes a consumer by ID
+func (c *Client) DeleteConsumer(ctx context.Context, id string) error {
+	_, err := c.httpClient.DefaultAPI.ApiMaestroV1ConsumersIdDelete(ctx, id).Execute()
+	if err != nil {
+		return fmt.Errorf("failed to delete consumer: %w", err)
+	}
+	return nil
+}
+
+// ResourceBundleToRawMap converts an openapi.ResourceBundle to a plain map suitable
+// for JSON/YAML marshaling, preserving the full manifests and status content.
+func ResourceBundleToRawMap(rb *openapi.ResourceBundle, consumer string) map[string]interface{} {
+	m := map[string]interface{}{
+		"consumerName": consumer,
+	}
+	if rb.Id != nil {
+		m["id"] = *rb.Id
+	}
+	if rb.Metadata != nil {
+		if name, ok := rb.Metadata["name"].(string); ok {
+			m["name"] = name
+		}
+	}
+	if rb.Version != nil {
+		m["version"] = *rb.Version
+	}
+	if rb.CreatedAt != nil {
+		m["createdAt"] = rb.CreatedAt.Format(time.RFC3339)
+	}
+	if rb.UpdatedAt != nil {
+		m["updatedAt"] = rb.UpdatedAt.Format(time.RFC3339)
+	}
+	if rb.DeleteOption != nil {
+		m["deleteOption"] = rb.DeleteOption
+	}
+	if rb.Manifests != nil {
+		m["manifests"] = rb.Manifests
+	}
+	if rb.Status != nil {
+		m["status"] = rb.Status
+	}
+	return m
+}
+
+// ResourceBundleToDetails converts an openapi.ResourceBundle to ManifestWorkDetails
+func ResourceBundleToDetails(rb *openapi.ResourceBundle, consumer string) *ManifestWorkDetails {
+	details := &ManifestWorkDetails{
+		ID:           getStringPtr(rb.Id),
+		ConsumerName: consumer,
+	}
+
+	if rb.Metadata != nil {
+		if name, ok := rb.Metadata["name"].(string); ok {
+			details.Name = name
+		}
+	}
+	if details.Name == "" {
+		details.Name = details.ID
+	}
+
+	if rb.Version != nil {
+		details.Version = *rb.Version
+	}
+	if rb.CreatedAt != nil {
+		details.CreatedAt = rb.CreatedAt.Format(time.RFC3339)
+	}
+	if rb.UpdatedAt != nil {
+		details.UpdatedAt = rb.UpdatedAt.Format(time.RFC3339)
+	}
+
+	if rb.DeleteOption != nil {
+		if policy, ok := rb.DeleteOption["propagationPolicy"].(string); ok {
+			details.DeleteOption = policy
+		}
+	}
+
+	if rb.Manifests != nil {
+		details.Manifests = make([]ManifestInfo, 0, len(rb.Manifests))
+		for _, manifest := range rb.Manifests {
+			info := ManifestInfo{}
+			if kind, ok := manifest["kind"].(string); ok {
+				info.Kind = kind
+			}
+			if metadata, ok := manifest["metadata"].(map[string]interface{}); ok {
+				if n, ok := metadata["name"].(string); ok {
+					info.Name = n
+				}
+				if ns, ok := metadata["namespace"].(string); ok {
+					info.Namespace = ns
+				}
+			}
+			details.Manifests = append(details.Manifests, info)
+		}
+	}
+
+	if rb.Status != nil {
+		if conditions, ok := rb.Status["conditions"].([]interface{}); ok {
+			details.Conditions = make([]ConditionSummary, 0, len(conditions))
+			for _, cond := range conditions {
+				if condMap, ok := cond.(map[string]interface{}); ok {
+					cs := ConditionSummary{}
+					if t, ok := condMap["type"].(string); ok {
+						cs.Type = t
+					}
+					if s, ok := condMap["status"].(string); ok {
+						cs.Status = s
+					}
+					if r, ok := condMap["reason"].(string); ok {
+						cs.Reason = r
+					}
+					if m, ok := condMap["message"].(string); ok {
+						cs.Message = m
+					}
+					if lt, ok := condMap["lastTransitionTime"].(string); ok {
+						cs.LastTransitionTime = lt
+					}
+					details.Conditions = append(details.Conditions, cs)
+				}
+			}
+		}
+
+		if resourceStatus, ok := rb.Status["resourceStatus"].([]interface{}); ok {
+			details.ResourceStatus = make([]ResourceStatusInfo, 0, len(resourceStatus))
+			for _, rs := range resourceStatus {
+				if rsMap, ok := rs.(map[string]interface{}); ok {
+					rsi := ResourceStatusInfo{}
+					if meta, ok := rsMap["resourceMeta"].(map[string]interface{}); ok {
+						if k, ok := meta["kind"].(string); ok {
+							rsi.Kind = k
+						}
+						if n, ok := meta["name"].(string); ok {
+							rsi.Name = n
+						}
+						if ns, ok := meta["namespace"].(string); ok {
+							rsi.Namespace = ns
+						}
+						if g, ok := meta["group"].(string); ok {
+							rsi.Group = g
+						}
+						if v, ok := meta["version"].(string); ok {
+							rsi.Version = v
+						}
+						if r, ok := meta["resource"].(string); ok {
+							rsi.Resource = r
+						}
+					}
+					if conds, ok := rsMap["conditions"].([]interface{}); ok {
+						rsi.Conditions = make([]ConditionSummary, 0, len(conds))
+						for _, c := range conds {
+							if condMap, ok := c.(map[string]interface{}); ok {
+								cs := ConditionSummary{}
+								if t, ok := condMap["type"].(string); ok {
+									cs.Type = t
+								}
+								if s, ok := condMap["status"].(string); ok {
+									cs.Status = s
+								}
+								if r, ok := condMap["reason"].(string); ok {
+									cs.Reason = r
+								}
+								if m, ok := condMap["message"].(string); ok {
+									cs.Message = m
+								}
+								rsi.Conditions = append(rsi.Conditions, cs)
+							}
+						}
+					}
+					details.ResourceStatus = append(details.ResourceStatus, rsi)
+				}
+			}
+		}
+	}
+
+	return details
 }
 
 // ValidateConsumer checks if a consumer exists and returns a user-friendly error if not
@@ -634,6 +856,15 @@ func (c *Client) GetManifestWorkDetailsHTTP(ctx context.Context, consumer, name 
 	}
 
 	return nil, errors.NewNotFound(workv1.Resource("manifestwork"), name)
+}
+
+// DeleteResourceBundleByID deletes a resource bundle directly by its ID
+func (c *Client) DeleteResourceBundleByID(ctx context.Context, id string) error {
+	_, err := c.httpClient.DefaultAPI.ApiMaestroV1ResourceBundlesIdDelete(ctx, id).Execute()
+	if err != nil {
+		return fmt.Errorf("failed to delete resource bundle %s: %w", id, err)
+	}
+	return nil
 }
 
 // DeleteManifestWorkByNameHTTP deletes a ManifestWork by its original name using HTTP API
